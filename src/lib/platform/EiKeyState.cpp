@@ -94,11 +94,13 @@ void EiKeyState::updateKeyboardLayouts()
   // The parser lives with the X11 code because it is the X layout parser as well; without X11
   // support the layouts stay as AppUtil guessed them.
   std::vector<std::string> descriptions;
+  m_groupLanguages.clear();
   const auto count = xkb_keymap_num_layouts(m_xkbKeymap);
   for (xkb_layout_index_t i = 0; i < count; ++i) {
-    if (const char *name = xkb_keymap_layout_get_name(m_xkbKeymap, i)) {
-      descriptions.emplace_back(name);
-    }
+    const char *name = xkb_keymap_layout_get_name(m_xkbKeymap, i);
+    descriptions.emplace_back(name ? name : "");
+    const auto groupLanguages = XkbLayoutsParser::getLanguageListForLayoutDescriptions({descriptions.back()});
+    m_groupLanguages.emplace_back(groupLanguages.empty() ? "" : groupLanguages.front());
   }
 
   const auto languages = XkbLayoutsParser::getLanguageListForLayoutDescriptions(descriptions);
@@ -110,7 +112,15 @@ void EiKeyState::updateKeyboardLayouts()
 
   AppUtil::instance().setKeyboardLayoutList(languages);
   setKeyboardLayouts(languages);
+  updateCurrentLanguage();
 #endif
+}
+
+void EiKeyState::updateCurrentLanguage()
+{
+  const auto group = xkb_state_serialize_layout(m_xkbState, XKB_STATE_LAYOUT_EFFECTIVE);
+  const auto language = group < m_groupLanguages.size() ? m_groupLanguages[group] : std::string{};
+  AppUtil::instance().setCurrentLanguageCode(language);
 }
 
 EiKeyState::~EiKeyState()
@@ -373,21 +383,29 @@ KeyID EiKeyState::mapKeyFromKeyval(uint32_t keyval) const
 void EiKeyState::updateXkbState(uint32_t keyval, bool isPressed)
 {
   LOG_VERBOSE("update key state: keyval=%d pressed=%i", keyval, isPressed);
-  xkb_state_update_key(m_xkbState, keyval, isPressed ? XKB_KEY_DOWN : XKB_KEY_UP);
+  if (xkb_state_update_key(m_xkbState, keyval, isPressed ? XKB_KEY_DOWN : XKB_KEY_UP) & XKB_STATE_LAYOUT_EFFECTIVE) {
+    updateCurrentLanguage();
+  }
 }
 
-void EiKeyState::updateLockedModifiers(xkb_mod_mask_t lockedMods)
+void EiKeyState::updateLockedModifiers(xkb_mod_mask_t lockedMods, xkb_layout_index_t group)
 {
-  // The compositor's lock state (Caps/Num/Scroll Lock) is authoritative; it
-  // also covers locks toggled while we weren't seeing the key events.
+  // The compositor's lock state (Caps/Num/Scroll Lock) and its active group are authoritative;
+  // they also cover locks toggled and layouts switched while we weren't seeing the key events.
   const auto depressedMods = xkb_state_serialize_mods(m_xkbState, XKB_STATE_MODS_DEPRESSED);
   const auto latchedMods = xkb_state_serialize_mods(m_xkbState, XKB_STATE_MODS_LATCHED);
   const auto depressedLayout = xkb_state_serialize_layout(m_xkbState, XKB_STATE_LAYOUT_DEPRESSED);
   const auto latchedLayout = xkb_state_serialize_layout(m_xkbState, XKB_STATE_LAYOUT_LATCHED);
-  const auto lockedLayout = xkb_state_serialize_layout(m_xkbState, XKB_STATE_LAYOUT_LOCKED);
+  auto lockedLayout = xkb_state_serialize_layout(m_xkbState, XKB_STATE_LAYOUT_LOCKED);
+  if (group < xkb_keymap_num_layouts(m_xkbKeymap)) {
+    lockedLayout = group;
+  } else {
+    LOG_WARN("compositor reports keyboard group %u, keymap has %u layouts", group, xkb_keymap_num_layouts(m_xkbKeymap));
+  }
   xkb_state_update_mask(
       m_xkbState, depressedMods, latchedMods, lockedMods, depressedLayout, latchedLayout, lockedLayout
   );
+  updateCurrentLanguage();
 }
 
 void EiKeyState::clearStaleModifiers()

@@ -20,6 +20,8 @@ private Q_SLOTS:
   void clearStaleModifiers_shiftDownAndNumLockOn_shiftClearedAndNumLockPreserved();
   void updateLockedModifiers_compositorLockState_numLockFollowsCompositor();
   void init_keymapWithNamedLayouts_layoutsReportedToAppUtil();
+  void updateXkbState_groupSwitch_activeLanguageReportedToAppUtil();
+  void updateLockedModifiers_compositorGroup_activeLanguageFollowsCompositor();
 
 private:
   Arch m_arch;
