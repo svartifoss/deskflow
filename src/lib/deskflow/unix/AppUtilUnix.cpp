@@ -99,11 +99,20 @@ void AppUtilUnix::setKeyboardLayoutList(const std::vector<std::string> &layouts)
 }
 
 // TODO: read the layout for x and wayland via xkbcommon
+void AppUtilUnix::setCurrentLanguageCode(const std::string &language)
+{
+  std::scoped_lock lock(m_compositorLayoutsMutex);
+  m_compositorLanguage = language;
+}
+
 std::string AppUtilUnix::getCurrentLanguageCode()
 {
   std::string result = "";
-  if (deskflow::platform::isWayland())
-    return result;
+  if (deskflow::platform::isWayland()) {
+    // the language of the compositor's active group, tracked by the platform code
+    std::scoped_lock lock(m_compositorLayoutsMutex);
+    return m_compositorLanguage;
+  }
 
 #if WINAPI_XWINDOWS
 

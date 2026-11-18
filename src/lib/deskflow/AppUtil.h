@@ -49,6 +49,19 @@ public:
   {
     // platforms that read their layouts directly ignore this
   }
+
+  /**
+   * @brief Remember the active keyboard layout the platform learnt from the compositor.
+   *
+   * The counterpart of setKeyboardLayoutList() for getCurrentLanguageCode(): on Wayland the
+   * platform code tracks the active group of the compositor's keymap (see EiKeyState) and reports
+   * its language here, the way the X11 code derives it from the display server's active group.
+   * @param language the ISO 639-1 code of the active group ("de", "en"), empty if unknown
+   */
+  virtual void setCurrentLanguageCode(const std::string &language)
+  {
+    // platforms that read the active layout directly ignore this
+  }
   virtual std::string getCurrentLanguageCode() = 0;
 
 private:

@@ -35,7 +35,13 @@ public:
   void pollPressedKeys(KeyButtonSet &pressedKeys) const override;
   KeyID mapKeyFromKeyval(std::uint32_t keyval) const;
   void updateXkbState(std::uint32_t keyval, bool isPressed);
-  void updateLockedModifiers(xkb_mod_mask_t lockedMods);
+  /**
+   * @brief Take the compositor's lock state and active group
+   * @param lockedMods the locked modifiers (Caps/Num/Scroll Lock) the compositor reports
+   * @param group the layout group the compositor reports as active; out of range for this keymap
+   *        leaves the group as it is
+   */
+  void updateLockedModifiers(xkb_mod_mask_t lockedMods, xkb_layout_index_t group);
   void clearStaleModifiers() override;
 
 protected:
@@ -52,6 +58,13 @@ private:
    * to the other side (AppUtil::setKeyboardLayoutList).
    */
   void updateKeyboardLayouts();
+  /**
+   * @brief Publish the language of the active group (AppUtil::setCurrentLanguageCode)
+   *
+   * Called whenever the xkb state may have changed its group: after a key, after the
+   * compositor's modifier state, after a new keymap.
+   */
+  void updateCurrentLanguage();
   std::uint32_t convertModMask(xkb_mod_mask_t xkbModMaskIn, bool mapMod2ToNumLock = false) const;
   void assignGeneratedModifiers(std::uint32_t keycode, KeyMap::KeyItem &item);
 
@@ -60,6 +73,8 @@ private:
   xkb_context *m_xkb = nullptr;
   xkb_keymap *m_xkbKeymap = nullptr;
   xkb_state *m_xkbState = nullptr;
+  // the ISO 639-1 code of each group of the keymap ("de", "en"), see updateKeyboardLayouts()
+  std::vector<std::string> m_groupLanguages;
 };
 
 } // namespace deskflow

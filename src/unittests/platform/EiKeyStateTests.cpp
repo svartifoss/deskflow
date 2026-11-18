@@ -35,12 +35,18 @@ public:
     reportedLayouts = layouts;
   }
 
+  void setCurrentLanguageCode(const std::string &language) override
+  {
+    reportedLanguage = language;
+  }
+
   std::string getCurrentLanguageCode() override
   {
     return "en";
   }
 
   std::vector<std::string> reportedLayouts;
+  std::string reportedLanguage;
 };
 
 // Two layouts, named as a compositor's compiled keymap names them.
@@ -49,6 +55,7 @@ xkb_keycodes "test" {
     minimum = 8;
     maximum = 255;
     <AD01> = 24;
+    <LVL3> = 92;
 };
 xkb_types "test" {
     type "ONE_LEVEL" {
@@ -57,13 +64,20 @@ xkb_types "test" {
     };
 };
 xkb_compat "test" {
+    interpret ISO_Next_Group+AnyOfOrNone(all) {
+        action = LockGroup(group=+1);
+    };
 };
 xkb_symbols "test" {
     name[Group1] = "German";
     name[Group2] = "English (US)";
     key <AD01> { [ q ], [ q ] };
+    key <LVL3> { [ ISO_Next_Group ] };
 };
 };)XKB";
+
+// XKB keycode of the group switch in TwoLayoutKeymap.
+constexpr std::uint32_t NextGroupKeycode = 92;
 
 const char TestKeymap[] = R"XKB(xkb_keymap {
 xkb_keycodes "test" {
@@ -151,7 +165,7 @@ void EiKeyStateTests::updateLockedModifiers_compositorLockState_numLockFollowsCo
   QVERIFY((keyState.pollActiveModifiers() & KeyModifierNumLock) == 0);
 
   // NumLock toggled on locally, reported by the compositor
-  keyState.updateLockedModifiers(xkbMod2Mask);
+  keyState.updateLockedModifiers(xkbMod2Mask, 0);
   QVERIFY((keyState.pollActiveModifiers() & KeyModifierNumLock) != 0);
   QVERIFY((keyState.pollActiveModifiers() & KeyModifierShift) != 0);
 
@@ -159,7 +173,7 @@ void EiKeyStateTests::updateLockedModifiers_compositorLockState_numLockFollowsCo
   QVERIFY((keyState.pollActiveModifiers() & KeyModifierNumLock) != 0);
 
   // NumLock toggled off locally
-  keyState.updateLockedModifiers(0);
+  keyState.updateLockedModifiers(0, 0);
   QVERIFY((keyState.pollActiveModifiers() & KeyModifierNumLock) == 0);
 }
 
@@ -181,6 +195,61 @@ void EiKeyStateTests::init_keymapWithNamedLayouts_layoutsReportedToAppUtil()
 
   // the compositor's layouts, in layout order, as ISO 639-1 codes
   QCOMPARE(appUtil.reportedLayouts, (std::vector<std::string>{"de", "en"}));
+#else
+  QSKIP("the layout parser is built with the X11 support");
+#endif
+}
+
+void EiKeyStateTests::updateXkbState_groupSwitch_activeLanguageReportedToAppUtil()
+{
+#if WINAPI_XWINDOWS
+  TestAppUtil appUtil;
+  EventQueue eventQueue;
+  deskflow::EiKeyState keyState(nullptr, &eventQueue);
+
+  QTemporaryFile keymapFile;
+  QVERIFY(keymapFile.open());
+  const QByteArray keymapData = QByteArray::fromRawData(TwoLayoutKeymap, sizeof(TwoLayoutKeymap) - 1);
+  QCOMPARE(keymapFile.write(keymapData), keymapData.size());
+  QVERIFY(keymapFile.flush());
+  keyState.init(keymapFile.handle(), keymapFile.size());
+  // the first group is active after a new keymap
+  QCOMPARE(appUtil.reportedLanguage, std::string("de"));
+
+  // the group switch (as the compositor's keymap defines it) moves to the second layout
+  keyState.updateXkbState(NextGroupKeycode, true);
+  keyState.updateXkbState(NextGroupKeycode, false);
+  QCOMPARE(appUtil.reportedLanguage, std::string("en"));
+  QCOMPARE(keyState.pollActiveGroup(), 1);
+#else
+  QSKIP("the layout parser is built with the X11 support");
+#endif
+}
+
+void EiKeyStateTests::updateLockedModifiers_compositorGroup_activeLanguageFollowsCompositor()
+{
+#if WINAPI_XWINDOWS
+  TestAppUtil appUtil;
+  EventQueue eventQueue;
+  deskflow::EiKeyState keyState(nullptr, &eventQueue);
+
+  QTemporaryFile keymapFile;
+  QVERIFY(keymapFile.open());
+  const QByteArray keymapData = QByteArray::fromRawData(TwoLayoutKeymap, sizeof(TwoLayoutKeymap) - 1);
+  QCOMPARE(keymapFile.write(keymapData), keymapData.size());
+  QVERIFY(keymapFile.flush());
+  keyState.init(keymapFile.handle(), keymapFile.size());
+  QCOMPARE(appUtil.reportedLanguage, std::string("de"));
+
+  // the compositor switched the layout while no key passed through us
+  keyState.updateLockedModifiers(0, 1);
+  QCOMPARE(appUtil.reportedLanguage, std::string("en"));
+  QCOMPARE(keyState.pollActiveGroup(), 1);
+  // a group this keymap doesn't have is ignored
+  keyState.updateLockedModifiers(0, 7);
+  QCOMPARE(appUtil.reportedLanguage, std::string("en"));
+  keyState.updateLockedModifiers(0, 0);
+  QCOMPARE(appUtil.reportedLanguage, std::string("de"));
 #else
   QSKIP("the layout parser is built with the X11 support");
 #endif

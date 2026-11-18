@@ -25,9 +25,12 @@ public:
   std::vector<std::string> getKeyboardLayoutList() override;
   void setKeyboardLayoutList(const std::vector<std::string> &layouts) override;
   std::string getCurrentLanguageCode() override;
+  void setCurrentLanguageCode(const std::string &language) override;
 
 private:
-  // the layouts of the compositor's keymap (Wayland), see setKeyboardLayoutList()
+  // the layouts of the compositor's keymap and its active one (Wayland), see
+  // setKeyboardLayoutList() and setCurrentLanguageCode()
   std::vector<std::string> m_compositorLayouts;
+  std::string m_compositorLanguage;
   std::mutex m_compositorLayoutsMutex;
 };
