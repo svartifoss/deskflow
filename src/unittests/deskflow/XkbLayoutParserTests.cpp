@@ -23,4 +23,21 @@ void XkbLayoutParserTests::convertLayouts()
   QCOMPARE(XkbLayoutsParser::convertLayoutToISO("us"), "en");
 }
 
+void XkbLayoutParserTests::convertLayoutDescriptions()
+{
+  using Strings = std::vector<std::string>;
+  // Descriptions are what a compiled keymap carries as layout names (xkb_keymap_layout_get_name);
+  // "English (US)" and "German" are always present in the xkeyboard-config data.
+  QCOMPARE(XkbLayoutsParser::getLanguageListForLayoutDescriptions({}), Strings{});
+  QCOMPARE(XkbLayoutsParser::getLanguageListForLayoutDescriptions({""}), Strings{});
+  QCOMPARE(XkbLayoutsParser::getLanguageListForLayoutDescriptions({"not a real layout"}), Strings{});
+  QCOMPARE(XkbLayoutsParser::getLanguageListForLayoutDescriptions({"English (US)"}), Strings{"en"});
+  QCOMPARE(XkbLayoutsParser::getLanguageListForLayoutDescriptions({"German"}), Strings{"de"});
+  // a variant resolves like its layout, the order is the layout order, duplicates collapse
+  QCOMPARE(
+      XkbLayoutsParser::getLanguageListForLayoutDescriptions({"German (no dead keys)", "English (US)", "German"}),
+      (Strings{"de", "en"})
+  );
+}
+
 QTEST_MAIN(XkbLayoutParserTests)

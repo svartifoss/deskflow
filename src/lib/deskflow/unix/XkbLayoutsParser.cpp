@@ -52,6 +52,7 @@ std::vector<XkbLayoutsParser::Lang> XkbLayoutsParser::getAllLanguageData()
   for (rxkb_layout *layout = rxkb_layout_first((ctx)); layout; layout = rxkb_layout_next(layout)) {
     const char *name = rxkb_layout_get_name(layout);
     const char *variant = rxkb_layout_get_variant(layout);
+    const char *description = rxkb_layout_get_description(layout);
 
     std::vector<std::string> isoCodes;
     for (rxkb_iso639_code *isoCode = rxkb_layout_get_iso639_first(layout); isoCode;
@@ -64,6 +65,7 @@ std::vector<XkbLayoutsParser::Lang> XkbLayoutsParser::getAllLanguageData()
     if (!variant) {
       allCodes.emplace_back();
       allCodes.back().name = name ? name : "";
+      allCodes.back().description = description ? description : "";
       allCodes.back().layoutBaseISO639_2 = std::move(isoCodes);
     } else {
       auto requiredName = name ? name : std::string{};
@@ -73,6 +75,7 @@ std::vector<XkbLayoutsParser::Lang> XkbLayoutsParser::getAllLanguageData()
 
       iterator->variants.emplace_back();
       iterator->variants.back().name = variant;
+      iterator->variants.back().description = description ? description : "";
       iterator->variants.back().layoutBaseISO639_2 = std::move(isoCodes);
     }
   }
@@ -156,6 +159,46 @@ std::vector<std::string> XkbLayoutsParser::getXkbLanguageList()
   std::vector<std::string> iso639_2Codes;
   iso639_2Codes.reserve(layoutNames.size());
   convertLayoutToISO639_2(layoutNames, layoutVariantNames, iso639_2Codes);
+  return convertISO639_2ToISO639_1(iso639_2Codes);
+}
+
+std::vector<std::string>
+XkbLayoutsParser::getLanguageListForLayoutDescriptions(const std::vector<std::string> &layoutDescriptions)
+{
+  static std::vector<XkbLayoutsParser::Lang> allLang;
+  if (allLang.empty()) {
+    allLang = getAllLanguageData();
+  }
+
+  std::vector<std::string> iso639_2Codes;
+  for (const auto &description : layoutDescriptions) {
+    if (description.empty()) {
+      LOG_DEBUG("skip converting empty layout description");
+      continue;
+    }
+
+    const std::vector<std::string> *codes = nullptr;
+    for (const auto &lang : allLang) {
+      if (lang.description == description) {
+        codes = &lang.layoutBaseISO639_2;
+        break;
+      }
+      auto variantIter =
+          std::ranges::find_if(lang.variants, [&description](const Lang &v) { return v.description == description; });
+      if (variantIter != lang.variants.end()) {
+        // a variant without its own languages belongs to its layout's
+        codes = variantIter->layoutBaseISO639_2.empty() ? &lang.layoutBaseISO639_2 : &variantIter->layoutBaseISO639_2;
+        break;
+      }
+    }
+
+    if (!codes) {
+      LOG_WARN("layout \"%s\" is unknown", description.c_str());
+      continue;
+    }
+    appendVectorUniq(*codes, iso639_2Codes);
+  }
+
   return convertISO639_2ToISO639_1(iso639_2Codes);
 }
 

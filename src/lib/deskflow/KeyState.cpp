@@ -1056,6 +1056,11 @@ void KeyState::addCombinationEntries()
   }
 }
 
+void KeyState::setKeyboardLayouts(std::vector<std::string> layouts)
+{
+  m_keyMap.setLanguageData(std::move(layouts));
+}
+
 void KeyState::fakeKeys(const Keystrokes &keys, uint32_t count)
 {
   // do nothing if no keys or no repeats

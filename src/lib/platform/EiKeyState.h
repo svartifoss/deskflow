@@ -44,6 +44,14 @@ protected:
   void fakeKey(const Keystroke &keystroke) override;
 
 private:
+  /**
+   * @brief Publish the layouts of the current keymap
+   *
+   * The compositor's keymap names its layouts (xkb_keymap_layout_get_name); their languages
+   * replace the layouts guessed at construction, for this key state and for what the app reports
+   * to the other side (AppUtil::setKeyboardLayoutList).
+   */
+  void updateKeyboardLayouts();
   std::uint32_t convertModMask(xkb_mod_mask_t xkbModMaskIn, bool mapMod2ToNumLock = false) const;
   void assignGeneratedModifiers(std::uint32_t keycode, KeyMap::KeyItem &item);
 

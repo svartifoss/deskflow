@@ -30,11 +30,40 @@ public:
     return {"en"};
   }
 
+  void setKeyboardLayoutList(const std::vector<std::string> &layouts) override
+  {
+    reportedLayouts = layouts;
+  }
+
   std::string getCurrentLanguageCode() override
   {
     return "en";
   }
+
+  std::vector<std::string> reportedLayouts;
 };
+
+// Two layouts, named as a compositor's compiled keymap names them.
+const char TwoLayoutKeymap[] = R"XKB(xkb_keymap {
+xkb_keycodes "test" {
+    minimum = 8;
+    maximum = 255;
+    <AD01> = 24;
+};
+xkb_types "test" {
+    type "ONE_LEVEL" {
+        modifiers = none;
+        level_name[Level1] = "Any";
+    };
+};
+xkb_compat "test" {
+};
+xkb_symbols "test" {
+    name[Group1] = "German";
+    name[Group2] = "English (US)";
+    key <AD01> { [ q ], [ q ] };
+};
+};)XKB";
 
 const char TestKeymap[] = R"XKB(xkb_keymap {
 xkb_keycodes "test" {
@@ -132,6 +161,29 @@ void EiKeyStateTests::updateLockedModifiers_compositorLockState_numLockFollowsCo
   // NumLock toggled off locally
   keyState.updateLockedModifiers(0);
   QVERIFY((keyState.pollActiveModifiers() & KeyModifierNumLock) == 0);
+}
+
+void EiKeyStateTests::init_keymapWithNamedLayouts_layoutsReportedToAppUtil()
+{
+#if WINAPI_XWINDOWS
+  TestAppUtil appUtil;
+  EventQueue eventQueue;
+  deskflow::EiKeyState keyState(nullptr, &eventQueue);
+  // the default keymap (us) is reported first
+  QCOMPARE(appUtil.reportedLayouts, (std::vector<std::string>{"en"}));
+
+  QTemporaryFile keymapFile;
+  QVERIFY(keymapFile.open());
+  const QByteArray keymapData = QByteArray::fromRawData(TwoLayoutKeymap, sizeof(TwoLayoutKeymap) - 1);
+  QCOMPARE(keymapFile.write(keymapData), keymapData.size());
+  QVERIFY(keymapFile.flush());
+  keyState.init(keymapFile.handle(), keymapFile.size());
+
+  // the compositor's layouts, in layout order, as ISO 639-1 codes
+  QCOMPARE(appUtil.reportedLayouts, (std::vector<std::string>{"de", "en"}));
+#else
+  QSKIP("the layout parser is built with the X11 support");
+#endif
 }
 
 QTEST_MAIN(EiKeyStateTests)

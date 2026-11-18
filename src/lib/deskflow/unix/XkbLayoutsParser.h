@@ -18,10 +18,24 @@ public:
   static std::vector<std::string> getXkbLanguageList();
   static std::string convertLayoutToISO(const std::string &layoutLangCode);
 
+  /**
+   * @brief Language codes for layouts given by their description
+   *
+   * A compiled keymap (as a Wayland compositor hands it to its clients) names its layouts by the
+   * descriptions of xkeyboard-config ("German", "English (US)", "German (no dead keys)"), not by
+   * the layout and variant names the X rules use. This resolves those descriptions through the
+   * xkb registry to the same ISO 639-1 codes getXkbLanguageList() produces.
+   * @param layoutDescriptions the keymap's layout names, in layout order
+   * @return ISO 639-1 codes, unique, in layout order; unknown descriptions are skipped
+   */
+  static std::vector<std::string>
+  getLanguageListForLayoutDescriptions(const std::vector<std::string> &layoutDescriptions);
+
 private:
   struct Lang
   {
     std::string name = "";
+    std::string description = "";
     std::vector<std::string> layoutBaseISO639_2;
     std::vector<Lang> variants;
   };

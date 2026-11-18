@@ -126,6 +126,14 @@ protected:
   */
   KeyButton getButton(KeyID id, int32_t group) const;
 
+  //! Replace the keyboard layouts the key map knows
+  /*!
+  The layouts (ISO 639-1 codes, in layout order) given at construction come
+  from the platform's best guess; a platform that learns the real layouts
+  later (the compositor's keymap on Wayland) updates them here.
+  */
+  void setKeyboardLayouts(std::vector<std::string> layouts);
+
   //@}
 
 private:
