@@ -15,6 +15,7 @@ class XkbLayoutParserTests : public QObject
 private Q_SLOTS:
   // Test are run in order top to bottom
   void convertLayouts();
+  void convertLayoutDescriptions();
 
 private:
   Log m_log;

@@ -8,6 +8,10 @@
 
 #include "platform/EiKeyState.h"
 
+#if WINAPI_XWINDOWS
+#include "deskflow/unix/XkbLayoutsParser.h"
+#endif
+
 #include "base/Log.h"
 #include "common/Settings.h"
 #include "deskflow/AppUtil.h"
@@ -45,6 +49,7 @@ void EiKeyState::initDefaultKeymap()
     xkb_state_unref(m_xkbState);
   }
   m_xkbState = xkb_state_new(m_xkbKeymap);
+  updateKeyboardLayouts();
 }
 
 void EiKeyState::init(int fd, size_t len)
@@ -80,6 +85,32 @@ void EiKeyState::init(int fd, size_t len)
     xkb_state_unref(m_xkbState);
   }
   m_xkbState = xkb_state_new(m_xkbKeymap);
+  updateKeyboardLayouts();
+}
+
+void EiKeyState::updateKeyboardLayouts()
+{
+#if WINAPI_XWINDOWS
+  // The parser lives with the X11 code because it is the X layout parser as well; without X11
+  // support the layouts stay as AppUtil guessed them.
+  std::vector<std::string> descriptions;
+  const auto count = xkb_keymap_num_layouts(m_xkbKeymap);
+  for (xkb_layout_index_t i = 0; i < count; ++i) {
+    if (const char *name = xkb_keymap_layout_get_name(m_xkbKeymap, i)) {
+      descriptions.emplace_back(name);
+    }
+  }
+
+  const auto languages = XkbLayoutsParser::getLanguageListForLayoutDescriptions(descriptions);
+  std::string summary;
+  for (const auto &language : languages) {
+    summary += (summary.empty() ? "" : ", ") + language;
+  }
+  LOG_INFO("keyboard layouts from the compositor's keymap: %s", summary.empty() ? "none" : summary.c_str());
+
+  AppUtil::instance().setKeyboardLayoutList(languages);
+  setKeyboardLayouts(languages);
+#endif
 }
 
 EiKeyState::~EiKeyState()

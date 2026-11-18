@@ -9,6 +9,8 @@
 
 #include "deskflow/AppUtil.h"
 
+#include <mutex>
+
 #define ARCH_APP_UTIL AppUtilUnix
 
 class IEventQueue;
@@ -21,5 +23,11 @@ public:
 
   int run() override;
   std::vector<std::string> getKeyboardLayoutList() override;
+  void setKeyboardLayoutList(const std::vector<std::string> &layouts) override;
   std::string getCurrentLanguageCode() override;
+
+private:
+  // the layouts of the compositor's keymap (Wayland), see setKeyboardLayoutList()
+  std::vector<std::string> m_compositorLayouts;
+  std::mutex m_compositorLayoutsMutex;
 };

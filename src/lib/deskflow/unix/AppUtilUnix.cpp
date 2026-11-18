@@ -39,6 +39,16 @@ std::vector<std::string> AppUtilUnix::getKeyboardLayoutList()
   std::vector<std::string> layoutLangCodes;
 
 #if WINAPI_XWINDOWS
+  if (deskflow::platform::isWayland()) {
+    // The X rules names of an Xwayland server never follow the compositor's layout (Xwayland
+    // receives a compiled keymap, not layout names), so they are only a fallback until the
+    // compositor's keymap has been seen.
+    std::scoped_lock lock(m_compositorLayoutsMutex);
+    if (!m_compositorLayouts.empty()) {
+      return m_compositorLayouts;
+    }
+    LOG_DEBUG("keyboard layouts of the compositor not known yet, falling back to the X rules names");
+  }
   layoutLangCodes = XkbLayoutsParser::getXkbLanguageList();
 
 #elif defined(Q_OS_MACOS)
@@ -80,6 +90,12 @@ std::vector<std::string> AppUtilUnix::getKeyboardLayoutList()
 #endif
 
   return layoutLangCodes;
+}
+
+void AppUtilUnix::setKeyboardLayoutList(const std::vector<std::string> &layouts)
+{
+  std::scoped_lock lock(m_compositorLayoutsMutex);
+  m_compositorLayouts = layouts;
 }
 
 // TODO: read the layout for x and wayland via xkbcommon

@@ -36,6 +36,19 @@ public:
   // Virtual Methods subclasses can impliment
   virtual int run() = 0;
   virtual std::vector<std::string> getKeyboardLayoutList() = 0;
+
+  /**
+   * @brief Remember the keyboard layouts the platform learnt from the compositor's keymap.
+   *
+   * On Wayland the layout list cannot be read from the display server; the platform code learns
+   * it from the keymap the compositor hands over (see EiKeyState) and reports it here, so that
+   * getKeyboardLayoutList() returns the compositor's layouts instead of an X11 fallback.
+   * @param layouts ISO 639-1 language codes, in layout order
+   */
+  virtual void setKeyboardLayoutList(const std::vector<std::string> &layouts)
+  {
+    // platforms that read their layouts directly ignore this
+  }
   virtual std::string getCurrentLanguageCode() = 0;
 
 private:
