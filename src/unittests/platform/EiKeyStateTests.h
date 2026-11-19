@@ -20,6 +20,7 @@ private Q_SLOTS:
   void clearStaleModifiers_shiftDownAndNumLockOn_shiftClearedAndNumLockPreserved();
   void updateLockedModifiers_compositorLockState_numLockFollowsCompositor();
   void init_keymapWithNamedLayouts_layoutsReportedToAppUtil();
+  void init_keymapChangesTheLayouts_layoutsChangedEventOnce();
   void updateXkbState_groupSwitch_activeLanguageReportedToAppUtil();
   void updateLockedModifiers_compositorGroup_activeLanguageFollowsCompositor();
 
