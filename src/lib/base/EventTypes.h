@@ -210,6 +210,12 @@ enum class EventTypes : uint32_t
   /// This event is sent whenever the computer's display shape changes.
   ComputerShapeChanged,
 
+  /** This event is sent when the keyboard layouts the computer announces to clients changed:
+      a compositor delivered its keymap after clients had connected, or replaced it. Clients learn
+      the layouts in the handshake only, so the server reconnects them.
+  */
+  ComputerKeyboardLayoutsChanged,
+
   /** This event is sent whenever the system goes to sleep or a user session is deactivated (fast
       user switching).
   */

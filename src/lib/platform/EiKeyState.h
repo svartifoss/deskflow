@@ -75,6 +75,10 @@ private:
   xkb_state *m_xkbState = nullptr;
   // the ISO 639-1 code of each group of the keymap ("de", "en"), see updateKeyboardLayouts()
   std::vector<std::string> m_groupLanguages;
+  // the layouts last announced (as AppUtil reports them): a change after the first announcement
+  // is an event for the server, see updateKeyboardLayouts()
+  std::vector<std::string> m_announcedLanguages;
+  IEventQueue *m_eventQueue = nullptr;
 };
 
 } // namespace deskflow

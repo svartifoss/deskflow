@@ -6,7 +6,9 @@
 
 #include "EiKeyStateTests.h"
 
+#include "base/Event.h"
 #include "base/EventQueue.h"
+#include "base/EventTypes.h"
 #include "deskflow/AppUtil.h"
 #include "deskflow/KeyTypes.h"
 #include "platform/EiKeyState.h"
@@ -47,6 +49,19 @@ public:
 
   std::vector<std::string> reportedLayouts;
   std::string reportedLanguage;
+};
+
+// Records the events a key state posts (an EventQueue holds them back until its loop runs).
+class RecordingEventQueue : public EventQueue
+{
+public:
+  void addEvent(Event &&event) override
+  {
+    types.push_back(event.getType());
+    EventQueue::addEvent(std::move(event));
+  }
+
+  std::vector<EventTypes> types;
 };
 
 // Two layouts, named as a compositor's compiled keymap names them.
@@ -195,6 +210,33 @@ void EiKeyStateTests::init_keymapWithNamedLayouts_layoutsReportedToAppUtil()
 
   // the compositor's layouts, in layout order, as ISO 639-1 codes
   QCOMPARE(appUtil.reportedLayouts, (std::vector<std::string>{"de", "en"}));
+#else
+  QSKIP("the layout parser is built with the X11 support");
+#endif
+}
+
+void EiKeyStateTests::init_keymapChangesTheLayouts_layoutsChangedEventOnce()
+{
+#if WINAPI_XWINDOWS
+  TestAppUtil appUtil;
+  RecordingEventQueue eventQueue;
+  deskflow::EiKeyState keyState(nullptr, &eventQueue);
+  // the default keymap is the first announcement, no change yet
+  QVERIFY(eventQueue.types.empty());
+
+  QTemporaryFile keymapFile;
+  QVERIFY(keymapFile.open());
+  const QByteArray keymapData = QByteArray::fromRawData(TwoLayoutKeymap, sizeof(TwoLayoutKeymap) - 1);
+  QCOMPARE(keymapFile.write(keymapData), keymapData.size());
+  QVERIFY(keymapFile.flush());
+
+  // the compositor's keymap replaces the default: the layouts changed, one event
+  keyState.init(keymapFile.handle(), keymapFile.size());
+  QCOMPARE(eventQueue.types, (std::vector<EventTypes>{EventTypes::ComputerKeyboardLayoutsChanged}));
+
+  // the same keymap again (an EIS reconnect): nothing changed, no further event
+  keyState.init(keymapFile.handle(), keymapFile.size());
+  QCOMPARE(eventQueue.types.size(), std::size_t{1});
 #else
   QSKIP("the layout parser is built with the X11 support");
 #endif

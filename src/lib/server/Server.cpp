@@ -98,6 +98,10 @@ Server::Server(ServerConfig &config, PrimaryClient *primaryClient, deskflow::Com
       EventTypes::PrimaryScreenSaverDeactivated, m_primaryClient->getEventTarget(),
       [this](const auto &) { onScreensaver(false); }
   );
+  m_events->addHandler(
+      EventTypes::ComputerKeyboardLayoutsChanged, m_primaryClient->getEventTarget(),
+      [this](const auto &) { handleKeyboardLayoutsChanged(); }
+  );
   m_events->addHandler(EventTypes::ServerSwitchToComputer, m_inputFilter, [this](const auto &e) {
     handleSwitchToComputerEvent(e);
   });
@@ -164,6 +168,7 @@ Server::~Server()
   m_events->removeHandler(PrimaryComputerWheel, m_primaryClient->getEventTarget());
   m_events->removeHandler(PrimaryScreenSaverActivated, m_primaryClient->getEventTarget());
   m_events->removeHandler(PrimaryScreenSaverDeactivated, m_primaryClient->getEventTarget());
+  m_events->removeHandler(ComputerKeyboardLayoutsChanged, m_primaryClient->getEventTarget());
   m_events->removeHandler(PrimaryComputerFakeInputBegin, m_inputFilter);
   m_events->removeHandler(PrimaryComputerFakeInputEnd, m_inputFilter);
   m_events->removeHandler(Timer, this);
@@ -1284,6 +1289,18 @@ void Server::handleSwitchWaitTimeout()
 
   // switch computer
   switchComputer(m_switchComputer, m_switchWaitX, m_switchWaitY, false);
+}
+
+void Server::handleKeyboardLayoutsChanged()
+{
+  // a client learns the server's layouts in the handshake only
+  // (kMsgDLanguageSynchronisation): the clients connected now renegotiate
+  if (m_clients.size() <= 1) {
+    return;
+  }
+  LOG_INFO("keyboard layouts changed, reconnecting the clients so they learn them");
+  Config emptyConfig(m_events);
+  closeClients(emptyConfig);
 }
 
 void Server::handleClientDisconnected(BaseClientProxy *client)

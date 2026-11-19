@@ -12,6 +12,8 @@
 #include "deskflow/unix/XkbLayoutsParser.h"
 #endif
 
+#include "base/Event.h"
+#include "base/IEventQueue.h"
 #include "base/Log.h"
 #include "common/Settings.h"
 #include "deskflow/AppUtil.h"
@@ -27,7 +29,8 @@ EiKeyState::EiKeyState(EiComputer *computer, IEventQueue *events)
     : KeyState(
           events, AppUtil::instance().getKeyboardLayoutList(), Settings::value(Settings::Client::LanguageSync).toBool()
       ),
-      m_computer{computer}
+      m_computer{computer},
+      m_eventQueue{events}
 {
   m_xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 
@@ -113,6 +116,19 @@ void EiKeyState::updateKeyboardLayouts()
   AppUtil::instance().setKeyboardLayoutList(languages);
   setKeyboardLayouts(languages);
   updateCurrentLanguage();
+
+  // Clients learn the layouts in the handshake only (kMsgDLanguageSynchronisation). The
+  // compositor's keymap arrives after the server's port opened (EI devices come after the portal
+  // session), and again after every EIS reconnect: a client connected before the real keymap
+  // holds the default's layouts. The server reconnects its clients on this event.
+  const bool changed = !m_announcedLanguages.empty() && languages != m_announcedLanguages;
+  m_announcedLanguages = languages;
+  if (changed && (m_computer == nullptr || m_computer->isPrimary())) {
+    LOG_DEBUG("keyboard layouts changed, the server reconnects its clients");
+    m_eventQueue->addEvent(
+        Event(EventTypes::ComputerKeyboardLayoutsChanged, m_computer != nullptr ? m_computer->getEventTarget() : nullptr)
+    );
+  }
 #endif
 }
 
